@@ -1,41 +1,52 @@
-let http = require('http');
-let fs = require('fs');
-let url = require('url');
-let qs = require('querystring');
-let template = require('./lib/template.js');
-let path = require('path');
-let sanitizeHtml = require('sanitize-html');
+const http = require('http');
+const fs = require('fs');
+const url = require('url');
+const qs = require('querystring');
+const path = require('path');
+const sanitizeHtml = require('sanitize-html');
+const mysql = require('mysql');
+const template = require('./lib/template.js');
 
-let app = http.createServer(function(request, response) {
-  let _url = request.url;
-  let queryData = url.parse(_url, true).query;
-  let {pathname} = url.parse(_url, true);
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: '1234',
+  database: 'opentutorials'
+});
+
+db.connect();
+
+const app = http.createServer(function(request, response) {
+  const _url = request.url;
+  const queryData = url.parse(_url, true).query;
+  const { pathname } = url.parse(_url, true);
   if (pathname === '/') {
     if (queryData.id === undefined) {
-      fs.readdir('./data', function(error, filelist) {
-        let title = 'Welcome';
-        let description = 'Hello, Node.js';
-        let list = template.list(filelist);
-        let html = template.HTML(
+      db.query(`SELECT * FROM topic`, (error, topics) => {
+        const title = 'Welcome';
+        const description = 'Hello, Node.js';
+        const list = template.list(topics);
+        const html = template.HTML(
           title,
           list,
           `<h2>${title}</h2>${description}`,
           `<a href="/create">create</a>`
         );
+        console.table(topics);
         response.writeHead(200);
         response.end(html);
       });
     } else {
       fs.readdir('./data', function(error, filelist) {
-        let filteredId = path.parse(queryData.id).base;
+        const filteredId = path.parse(queryData.id).base;
         fs.readFile(`data/${filteredId}`, 'utf8', function(err, description) {
-          let title = queryData.id;
-          let sanitizedTitle = sanitizeHtml(title);
-          let sanitizedDescription = sanitizeHtml(description, {
+          const title = queryData.id;
+          const sanitizedTitle = sanitizeHtml(title);
+          const sanitizedDescription = sanitizeHtml(description, {
             allowedTags: ['h1']
           });
-          let list = template.list(filelist);
-          let html = template.HTML(
+          const list = template.list(filelist);
+          const html = template.HTML(
             sanitizedTitle,
             list,
             `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
@@ -53,9 +64,9 @@ let app = http.createServer(function(request, response) {
     }
   } else if (pathname === '/create') {
     fs.readdir('./data', function(error, filelist) {
-      let title = 'WEB - create';
-      let list = template.list(filelist);
-      let html = template.HTML(
+      const title = 'WEB - create';
+      const list = template.list(filelist);
+      const html = template.HTML(
         title,
         list,
         `
@@ -80,9 +91,9 @@ let app = http.createServer(function(request, response) {
       body += data;
     });
     request.on('end', function() {
-      let post = qs.parse(body);
-      let {title} = post;
-      let {description} = post;
+      const post = qs.parse(body);
+      const { title } = post;
+      const { description } = post;
       fs.writeFile(`data/${title}`, description, 'utf8', function(err) {
         response.writeHead(302, { Location: `/?id=${title}` });
         response.end();
@@ -90,11 +101,11 @@ let app = http.createServer(function(request, response) {
     });
   } else if (pathname === '/update') {
     fs.readdir('./data', function(error, filelist) {
-      let filteredId = path.parse(queryData.id).base;
+      const filteredId = path.parse(queryData.id).base;
       fs.readFile(`data/${filteredId}`, 'utf8', function(err, description) {
-        let title = queryData.id;
-        let list = template.list(filelist);
-        let html = template.HTML(
+        const title = queryData.id;
+        const list = template.list(filelist);
+        const html = template.HTML(
           title,
           list,
           `
@@ -121,10 +132,10 @@ let app = http.createServer(function(request, response) {
       body += data;
     });
     request.on('end', function() {
-      let post = qs.parse(body);
-      let {id} = post;
-      let {title} = post;
-      let {description} = post;
+      const post = qs.parse(body);
+      const { id } = post;
+      const { title } = post;
+      const { description } = post;
       fs.rename(`data/${id}`, `data/${title}`, function(error) {
         fs.writeFile(`data/${title}`, description, 'utf8', function(err) {
           response.writeHead(302, { Location: `/?id=${title}` });
@@ -138,9 +149,9 @@ let app = http.createServer(function(request, response) {
       body += data;
     });
     request.on('end', function() {
-      let post = qs.parse(body);
-      let {id} = post;
-      let filteredId = path.parse(id).base;
+      const post = qs.parse(body);
+      const { id } = post;
+      const filteredId = path.parse(id).base;
       fs.unlink(`data/${filteredId}`, function(error) {
         response.writeHead(302, { Location: `/` });
         response.end();
