@@ -3,7 +3,6 @@ const fs = require('fs');
 const url = require('url');
 const qs = require('querystring');
 const path = require('path');
-const sanitizeHtml = require('sanitize-html');
 const mysql = require('mysql');
 const template = require('./lib/template.js');
 
@@ -37,29 +36,37 @@ const app = http.createServer(function(request, response) {
         response.end(html);
       });
     } else {
-      fs.readdir('./data', function(error, filelist) {
-        const filteredId = path.parse(queryData.id).base;
-        fs.readFile(`data/${filteredId}`, 'utf8', function(err, description) {
-          const title = queryData.id;
-          const sanitizedTitle = sanitizeHtml(title);
-          const sanitizedDescription = sanitizeHtml(description, {
-            allowedTags: ['h1']
-          });
-          const list = template.list(filelist);
-          const html = template.HTML(
-            sanitizedTitle,
-            list,
-            `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
-            ` <a href="/create">create</a>
-                <a href="/update?id=${sanitizedTitle}">update</a>
+      db.query(`SELECT * FROM topic`, (error, topics) => {
+        if (error) {
+          throw error;
+        }
+        console.table(queryData);
+        db.query(
+          `SELECT * FROM topic where id=?`,
+          [queryData.id],
+          (error2, topic) => {
+            if (error2) {
+              throw error2;
+            }
+            const { title, description } = topic[0];
+            const list = template.list(topics);
+            const html = template.HTML(
+              title,
+              list,
+              `<h2>${title}</h2>${description}`,
+              `
+                <a href="/create">create</a>
+                <a href="/update?id=${queryData.id}">update</a>
                 <form action="delete_process" method="post">
-                  <input type="hidden" name="id" value="${sanitizedTitle}">
+                  <input type="hidden" name="id" value="${queryData.id}">
                   <input type="submit" value="delete">
-                </form>`
-          );
-          response.writeHead(200);
-          response.end(html);
-        });
+                </form>
+              `
+            );
+            response.writeHead(200);
+            response.end(html);
+          }
+        );
       });
     }
   } else if (pathname === '/create') {
