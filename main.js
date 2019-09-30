@@ -70,9 +70,9 @@ const app = http.createServer(function(request, response) {
       });
     }
   } else if (pathname === '/create') {
-    fs.readdir('./data', function(error, filelist) {
-      const title = 'WEB - create';
-      const list = template.list(filelist);
+    db.query(`SELECT * FROM topic`, (error, topics) => {
+      const title = 'Create';
+      const list = template.list(topics);
       const html = template.HTML(
         title,
         list,
@@ -87,13 +87,14 @@ const app = http.createServer(function(request, response) {
             </p>
           </form>
         `,
-        ''
+        `<a href="/create">create</a>`
       );
+      console.table(topics);
       response.writeHead(200);
       response.end(html);
     });
   } else if (pathname === '/create_process') {
-    var body = '';
+    let body = '';
     request.on('data', function(data) {
       body += data;
     });
@@ -101,10 +102,19 @@ const app = http.createServer(function(request, response) {
       const post = qs.parse(body);
       const { title } = post;
       const { description } = post;
-      fs.writeFile(`data/${title}`, description, 'utf8', function(err) {
-        response.writeHead(302, { Location: `/?id=${title}` });
-        response.end();
-      });
+      db.query(
+        `
+        INSERT INTO topic (title, description, created, author_id) 
+          VALUES(?, ?, NOW(), ?)`,
+        [title, description, 1],
+        function(err, result) {
+          if (err) {
+            throw err;
+          }
+          response.writeHead(302, { location: `/?id=${result.insertId}` });
+          response.end();
+        }
+      );
     });
   } else if (pathname === '/update') {
     fs.readdir('./data', function(error, filelist) {
